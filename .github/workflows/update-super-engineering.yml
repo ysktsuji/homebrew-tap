@@ -28,6 +28,7 @@ jobs:
           cask="ysktsuji/tap/super-engineering"
           download_endpoint="https://super.engineering/api/download"
           brew tap ysktsuji/tap
+          brew trust --cask "$cask"
           tap_path="$(brew --repository ysktsuji/tap)"
           cask_path="$tap_path/Casks/super-engineering.rb"
 
