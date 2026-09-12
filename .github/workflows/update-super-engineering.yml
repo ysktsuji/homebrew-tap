@@ -1,0 +1,76 @@
+name: Update super.engineering
+
+on:
+  schedule:
+    - cron: "23 4 * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-super-engineering
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: macos-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out the tap
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - name: Check for and publish an update
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          cask="ysktsuji/tap/super-engineering"
+          download_endpoint="https://super.engineering/api/download"
+          brew tap ysktsuji/tap
+          tap_path="$(brew --repository ysktsuji/tap)"
+          cask_path="$tap_path/Casks/super-engineering.rb"
+
+          # shellcheck disable=SC2016
+          current_version="$(ruby -ne \
+              'puts Regexp.last_match(1) if /^  version "([^"]+)"/.match($_)' "$cask_path")"
+          # shellcheck disable=SC2016
+          current_sha256="$(ruby -ne \
+              'puts Regexp.last_match(1) if /^  sha256 "([0-9a-f]{64})"/.match($_)' "$cask_path")"
+          # shellcheck disable=SC2016
+          latest_version="$(brew livecheck --cask --json "$cask" \
+              | ruby -rjson -e 'puts JSON.parse($stdin.read).fetch(0).fetch("version").fetch("latest")')"
+          redirect_url="$(
+            curl --fail --silent --show-error --head "$download_endpoint" \
+              | awk 'BEGIN { IGNORECASE = 1 } /^location:/ {
+                  sub(/^[^:]*:[[:space:]]*/, ""); sub(/\r$/, ""); print; exit
+                }'
+          )"
+
+          [[ "$redirect_url" =~ /Superconductor-nightly-([0-9a-f]+)-arm64\.dmg$ ]]
+          redirect_version="${BASH_REMATCH[1]}"
+          [[ "$latest_version" == "$redirect_version" ]]
+
+          dmg_path="$(mktemp "${RUNNER_TEMP}/super-engineering.XXXXXX.dmg")"
+          trap 'rm -f "$dmg_path"' EXIT
+          curl --fail --location --silent --show-error --output "$dmg_path" "$redirect_url"
+          latest_sha256="$(shasum -a 256 "$dmg_path" | awk '{ print $1 }')"
+
+          if [[ "$latest_version" == "$current_version" ]]; then
+            if [[ "$latest_sha256" != "$current_sha256" ]]; then
+              echo "Refusing to update: version $current_version has a different SHA-256." >&2
+              exit 1
+            fi
+            echo "super.engineering is already current: $current_version"
+            exit 0
+          fi
+
+          brew bump-cask-pr --write-only "$cask" --version "$latest_version" --sha256 "$latest_sha256"
+          brew style "$cask"
+          brew audit --cask "$cask"
+          brew install --cask "$cask"
+
+          git -C "$tap_path" add Casks/super-engineering.rb
+          git -C "$tap_path" commit -m "🍺 update super-engineering to $latest_version"
+          gh auth setup-git
+          git -C "$tap_path" push origin HEAD:main
