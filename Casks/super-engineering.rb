@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
 cask "super-engineering" do
-  version "e1587a19"
-  sha256 "70ee5037b9d90b7b7533dd6e70a35dce5666f86f5c63b23d75cbc43193455e6c"
+  version "23aed9a6"
+  sha256 "315dc90fa5ab3ab8b966d51409ba04e2cd1b21442928f542ca9945c4bbb1ba11"
 
   url "https://releases.superconductor.so/nightly/Superconductor-nightly-#{version}-arm64.dmg"
   name "super.engineering"
