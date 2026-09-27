@@ -26,7 +26,7 @@ jobs:
           set -euo pipefail
 
           cask="ysktsuji/tap/super-engineering"
-          download_endpoint="https://super.engineering/api/download"
+          download_endpoint="https://super.engineering/api/download?arch=arm64"
           brew tap ysktsuji/tap
           brew trust --cask "$cask"
           tap_path="$(brew --repository ysktsuji/tap)"
@@ -39,8 +39,16 @@ jobs:
           current_sha256="$(ruby -ne \
               'puts Regexp.last_match(1) if /^  sha256 "([0-9a-f]{64})"/.match($_)' "$cask_path")"
           # shellcheck disable=SC2016
-          latest_version="$(brew livecheck --cask --json "$cask" \
-              | ruby -rjson -e 'puts JSON.parse($stdin.read).fetch(0).fetch("version").fetch("latest")')"
+          latest_version="$(
+            brew livecheck --cask --json "$cask" | ruby -rjson -e '
+              entry = JSON.parse($stdin.read).fetch(0)
+              unless entry.key?("version")
+                messages = entry.fetch("messages", ["missing version"])
+                abort "livecheck failed: #{messages.join("; ")}"
+              end
+              puts entry.fetch("version").fetch("latest")
+            '
+          )"
           redirect_url="$(
             curl --fail --silent --show-error --head "$download_endpoint" \
               | awk 'BEGIN { IGNORECASE = 1 } /^location:/ {
@@ -48,7 +56,7 @@ jobs:
                 }'
           )"
 
-          [[ "$redirect_url" =~ /Superconductor-nightly-([0-9a-f]+)-arm64\.dmg$ ]]
+          [[ "$redirect_url" =~ /super\.engineering-nightly-([0-9a-f]+)-arm64\.dmg$ ]]
           redirect_version="${BASH_REMATCH[1]}"
           [[ "$latest_version" == "$redirect_version" ]]
 
