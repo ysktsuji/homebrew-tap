@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
 cask "super-engineering" do
-  version "d81ca04d"
-  sha256 "c0c1448d3362bb10d93c4bbca1b4d98cf240abde0c5f2ed8714cf98f7352160a"
+  version "5f4b915b"
+  sha256 "449f54cac0faea61bba0434a0bb7a8f5f1fa343d673c9bef7cf158008e5692f8"
 
   url "https://releases.super.engineering/nightly/super.engineering-nightly-#{version}-arm64.dmg"
   name "super.engineering"
